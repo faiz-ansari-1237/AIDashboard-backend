@@ -20,7 +20,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'e16a345808f416d5933e00d3ba222c5fdb
 
 // CORS Configuration (MODIFIED)
 const corsOptions = {
-    origin: 'https://ailearningdashboard.netlify.app', // Explicitly allow your Netlify frontend
+    origin: 'https://ailearningdashboard.netlify.app/', // Explicitly allow your Netlify frontend
     credentials: true, // Crucial for sending cookies/authorization headers
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', // Allowed HTTP methods
     optionsSuccessStatus: 200 // Return 200 for preflight OPTIONS requests
