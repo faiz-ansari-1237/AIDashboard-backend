@@ -12,19 +12,28 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
 // NEW: Define your JWT Secret from environment variables
-const JWT_SECRET = process.env.JWT_SECRET || 'fe215c61b326961509263ea4f8175a342e7f76c9797ed99b8858748511fcc6df'; // Use a strong secret!
+const JWT_SECRET = process.env.JWT_SECRET || 'e16a345808f416d5933e00d3ba222c5fdbc4941b0a77eca0e4d92cad2a04ba1a'; // Use a strong secret!
 
 // =====================================================================
 // Middleware
 // =====================================================================
-app.use(cors());
-app.use(express.json());
+
+// CORS Configuration (MODIFIED)
+const corsOptions = {
+    origin: 'https://ailearningdashboard.netlify.app', // Explicitly allow your Netlify frontend
+    credentials: true, // Crucial for sending cookies/authorization headers
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', // Allowed HTTP methods
+    optionsSuccessStatus: 200 // Return 200 for preflight OPTIONS requests
+};
+app.use(cors(corsOptions)); // Apply CORS middleware with specific options
+
+app.use(express.json()); // Body parser for JSON
 
 // =====================================================================
 // MongoDB Connection
 // =====================================================================
 mongoose.connect(MONGO_URI)
-    .then(() => console.log('MongoDB connected successfully!'))
+    .then(() => console.log('MongoDB connected successfully!')) // Moved log inside .then()
     .catch(err => console.error('MongoDB connection error:', err));
 
 // =====================================================================
@@ -151,5 +160,5 @@ app.use('/api/quizzes', authenticateToken, quizRoutes);
 
 // Start Server
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`); // Changed log to use actual PORT
 });
