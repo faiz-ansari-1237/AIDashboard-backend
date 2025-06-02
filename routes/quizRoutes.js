@@ -2,41 +2,67 @@ const express = require('express');
 const router = express.Router();
 const Quiz = require('../models/Quiz');
 const Course = require('../models/Course'); // Needed to link quizzes to courses
+const mongoose = require('mongoose'); // NEW: Import mongoose for ObjectId validation
 
 // Route to get all quizzes (optional, might prefer by course)
 router.get('/', async (req, res) => {
+    console.log('Attempting to fetch all quizzes...'); // Log request
     try {
         // Populate the 'course' field to get course title and id
         const quizzes = await Quiz.find().populate('course', 'title id');
+        console.log(`Successfully fetched ${quizzes.length} quizzes.`); // Log success
         res.status(200).json(quizzes);
     } catch (err) {
-        console.error('Error fetching quizzes:', err);
-        res.status(500).json({ message: 'Server error fetching quizzes' });
+        console.error('Error fetching all quizzes:', err); // More specific error log
+        res.status(500).json({ message: 'Server error fetching all quizzes' });
     }
 });
 
 // Route to get quizzes for a specific course (using course's MongoDB _id)
 router.get('/course/:courseObjectId', async (req, res) => {
+    const courseObjectId = req.params.courseObjectId;
+    console.log(`Attempting to fetch quizzes for courseObjectId: ${courseObjectId}`); // Log incoming ID
+
+    // NEW: Validate if the provided courseObjectId is a valid MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(courseObjectId)) {
+        console.error(`Invalid courseObjectId format received: ${courseObjectId}`);
+        // If it's not a valid ObjectId, it cannot be a valid course._id
+        return res.status(400).json({ message: 'Invalid course ID format provided.' });
+    }
+
     try {
-        const quizzes = await Quiz.find({ course: req.params.courseObjectId });
+        // Find quizzes linked to the provided course ObjectId
+        const quizzes = await Quiz.find({ course: courseObjectId });
+        console.log(`Successfully fetched ${quizzes.length} quizzes for courseObjectId: ${courseObjectId}`); // Log success
         res.status(200).json(quizzes);
     } catch (err) {
-        console.error('Error fetching quizzes for course:', err);
+        console.error('Error fetching quizzes for course:', err); // More specific error log
         res.status(500).json({ message: 'Server error fetching quizzes for course' });
     }
 });
 
 // Route to get a single quiz by its ID
 router.get('/:id', async (req, res) => {
+    const quizId = req.params.id;
+    console.log(`Attempting to fetch single quiz with ID: ${quizId}`); // Log incoming ID
+
+    // NEW: Validate if the provided quizId is a valid MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(quizId)) {
+        console.error(`Invalid quiz ID format received: ${quizId}`);
+        return res.status(400).json({ message: 'Invalid quiz ID format provided.' });
+    }
+
     try {
         // Populate the 'course' field to get course title and id
-        const quiz = await Quiz.findById(req.params.id).populate('course', 'title id');
+        const quiz = await Quiz.findById(quizId).populate('course', 'title id');
         if (!quiz) {
+            console.log(`Quiz with ID: ${quizId} not found.`); // Log not found
             return res.status(404).json({ message: 'Quiz not found' });
         }
+        console.log(`Successfully fetched quiz with ID: ${quizId}`); // Log success
         res.status(200).json(quiz);
     } catch (err) {
-        console.error('Error fetching single quiz:', err);
+        console.error('Error fetching single quiz:', err); // More specific error log
         res.status(500).json({ message: 'Server error fetching quiz' });
     }
 });
@@ -44,15 +70,17 @@ router.get('/:id', async (req, res) => {
 // Route to create a new quiz (Admin-only in a real app)
 router.post('/', async (req, res) => {
     const { title, description, courseId, questions, passPercentage } = req.body;
+    console.log(`Attempting to create new quiz for courseId: ${courseId}`); // Log creation attempt
 
     if (!title || !courseId || !questions || questions.length === 0) {
         return res.status(400).json({ message: 'Missing required quiz fields: title, courseId, questions.' });
     }
 
     try {
-        // Find the course by its 'id' field (assuming you use 'id' for courses)
+        // Find the course by its 'id' field (assuming you use 'id' for courses like "web-dev-bootcamp")
         const course = await Course.findOne({ id: courseId });
         if (!course) {
+            console.log(`Course not found with provided courseId: ${courseId}`); // Log not found
             return res.status(404).json({ message: 'Course not found with the provided courseId.' });
         }
 
@@ -70,9 +98,10 @@ router.post('/', async (req, res) => {
         course.quizzes.push(newQuiz._id);
         await course.save();
 
+        console.log(`Quiz created successfully with ID: ${newQuiz._id}`); // Log success
         res.status(201).json({ message: 'Quiz created successfully!', quiz: newQuiz });
     } catch (err) {
-        console.error('Error creating quiz:', err);
+        console.error('Error creating quiz:', err); // More specific error log
         res.status(500).json({ message: 'Server error creating quiz' });
     }
 });
@@ -81,10 +110,18 @@ router.post('/', async (req, res) => {
 router.post('/:id/submit', async (req, res) => {
     const quizId = req.params.id;
     const { answers } = req.body; // answers will be an array of { questionId: '...', userAnswer: '...' }
+    console.log(`Attempting to submit quiz with ID: ${quizId}`); // Log submission attempt
+
+    // NEW: Validate if the provided quizId is a valid MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(quizId)) {
+        console.error(`Invalid quiz ID format received for submission: ${quizId}`);
+        return res.status(400).json({ message: 'Invalid quiz ID format provided.' });
+    }
 
     try {
         const quiz = await Quiz.findById(quizId);
         if (!quiz) {
+            console.log(`Quiz with ID: ${quizId} not found for submission.`); // Log not found
             return res.status(404).json({ message: 'Quiz not found' });
         }
 
@@ -131,6 +168,7 @@ router.post('/:id/submit', async (req, res) => {
         const percentage = (score / totalQuestions) * 100;
         const passed = percentage >= quiz.passPercentage;
 
+        console.log(`Quiz submission for ID: ${quizId} processed. Score: ${score}/${totalQuestions}`); // Log submission result
         // In a real app, you'd save this attempt to a UserQuizAttempt model
         res.status(200).json({
             message: 'Quiz submitted successfully!',
@@ -142,7 +180,7 @@ router.post('/:id/submit', async (req, res) => {
         });
 
     } catch (err) {
-        console.error('Error submitting quiz:', err);
+        console.error('Error submitting quiz:', err); // More specific error log
         res.status(500).json({ message: 'Server error submitting quiz' });
     }
 });
